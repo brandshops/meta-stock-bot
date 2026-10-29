@@ -12,6 +12,12 @@ if (files.length) {
   console.log('Using settings file', files[files.length - 1]);
 } else console.log('No settings file found: running a small test with default settings');
 (async () => {
+  try {
+    const r = await fetch('https://aiglasses.ae/wp-json/aig-stock/v1/config', { headers: { 'X-AIG-Key': key } });
+    const j = await r.json();
+    if (j && j.config && j.config.settings) { cfg = j.config; console.log('Using settings saved in WordPress'); }
+    else console.log('No settings in WordPress yet (HTTP ' + r.status + '), using the uploaded file');
+  } catch (e) { console.log('Could not read WordPress settings:', e.message, '- using the uploaded file'); }
   const ctx = await chromium.launchPersistentContext('/tmp/prof', { headless: false, args: ['--disable-extensions-except=' + ext, '--load-extension=' + ext, '--no-sandbox'] });
   let sw = ctx.serviceWorkers()[0];
   if (!sw) sw = await ctx.waitForEvent('serviceworker', { timeout: 30000 });
