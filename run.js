@@ -4,6 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const ext = path.resolve('ext');
 const key = process.env.WP_KEY || '';
+const mode = process.env.MODE === 'quick' ? 'quick' : 'full';
+const api = 'https://aiglasses.ae/wp-json/aig-stock/v1';
 const files = fs.readdirSync('.').filter(f => /^meta-stock-backup.*\.json$/i.test(f)).sort();
 let cfg = null;
 if (files.length) {
@@ -13,7 +15,7 @@ if (files.length) {
 } else console.log('No settings file found: running a small test with default settings');
 (async () => {
   try {
-    const r = await fetch('https://aiglasses.ae/wp-json/aig-stock/v1/config', { headers: { 'X-AIG-Key': key } });
+    const r = await fetch(api + '/config', { headers: { 'X-AIG-Key': key } });
     const j = await r.json();
     if (j && j.config && j.config.settings) { cfg = j.config; console.log('Using settings saved in WordPress'); }
     else console.log('No settings in WordPress yet (HTTP ' + r.status + '), using the uploaded file');
@@ -37,6 +39,11 @@ if (files.length) {
   await page.goto('chrome-extension://' + id + '/dashboard.html');
   await page.waitForTimeout(2000);
   if (!cfg) await page.evaluate(() => { S.selCountries = ['AE', 'IN', 'GB']; S.selProducts = S.selProducts.slice(0, 3); });
+  if (mode === 'quick') {
+    const n = await page.evaluate(() => { const h = S.settings.hourly || []; const known = allProducts().map(p => p[0]); S.selProducts = h.filter(x => known.indexOf(x) !== -1); return S.selProducts.length; });
+    if (!n) { console.log('QUICK: no products ticked with the clock in Full settings - nothing to do'); await ctx.close(); return; }
+    console.log('QUICK run:', n, 'products');
+  }
   const plan = await page.evaluate(() => ({ products: S.selProducts.length, countries: S.selCountries.length, wp: S.settings.wpUrl }));
   console.log('Plan', JSON.stringify(plan));
   const t0 = Date.now();
