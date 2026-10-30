@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const ext = path.resolve('ext');
 const key = process.env.WP_KEY || '';
-const mode = process.env.MODE === 'quick' ? 'quick' : 'full';
+const mode = (['quick', 'listen'].indexOf(process.env.MODE) !== -1 ? process.env.MODE : 'full');
 const api = 'https://aiglasses.ae/wp-json/aig-stock/v1';
 const files = fs.readdirSync('.').filter(f => /^meta-stock-backup.*\.json$/i.test(f)).sort();
 let cfg = null;
@@ -29,15 +29,16 @@ if (files.length) {
   page.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await page.goto('chrome-extension://' + id + '/dashboard.html');
   await page.waitForTimeout(1500);
-  await page.evaluate(async ([c, k]) => {
+  await page.evaluate(async ([c, k, m]) => {
     const cur = (await chrome.storage.local.get('msc')).msc || {};
     const o = c ? c : cur;
-    o.settings = Object.assign({}, o.settings || {}, { wpKey: k, wpUrl: (o.settings && o.settings.wpUrl) || 'https://aiglasses.ae', autoMig: 1, autoPush: true, listen: true });
+    o.settings = Object.assign({}, o.settings || {}, { wpKey: k, wpUrl: (o.settings && o.settings.wpUrl) || 'https://aiglasses.ae', autoMig: 1, autoPush: true, listen: true, autoHours: m === 'listen' ? 0 : ((o.settings && o.settings.autoHours) || 3) });
     o.results = {};
     await chrome.storage.local.set({ msc: o });
-  }, [cfg, key]);
+  }, [cfg, key, mode]);
   await page.goto('chrome-extension://' + id + '/dashboard.html');
   await page.waitForTimeout(2000);
+  if (mode === 'listen') { console.log('LISTEN: answering customer requests from the website for 5h40m'); await page.waitForTimeout(340 * 60000); await ctx.close(); return; }
   if (!cfg) await page.evaluate(() => { S.selCountries = ['AE', 'IN', 'GB']; S.selProducts = S.selProducts.slice(0, 3); });
   if (mode === 'quick') {
     const n = await page.evaluate(() => {
