@@ -40,7 +40,7 @@ if (files.length) {
   await page.waitForTimeout(2000);
   if (!cfg) await page.evaluate(() => { S.selCountries = ['AE', 'IN', 'GB']; S.selProducts = S.selProducts.slice(0, 3); });
   if (mode === 'quick') {
-    const n = await page.evaluate(() => { const h = S.settings.hourly || []; const known = allProducts().map(p => p[0]); S.selProducts = h.filter(x => known.indexOf(x) !== -1); return S.selProducts.length; });
+    const n = await page.evaluate(() => { const h = S.settings.hourly || []; const known = allProducts().map(p => p[0]); const sh = new Date().getUTCHours() % 3; S.selProducts = h.filter(x => known.indexOf(x) !== -1).filter((x, i) => i % 3 === sh); return S.selProducts.length; });
     if (!n) { console.log('QUICK: no products ticked with the clock in Full settings - nothing to do'); await ctx.close(); return; }
     console.log('QUICK run:', n, 'products');
   }
@@ -52,6 +52,8 @@ if (files.length) {
   clearInterval(prog);
   const sum = await page.evaluate(() => { const c = {}; Object.values(S.results).forEach(r => { c[r.status] = (c[r.status] || 0) + 1; }); return c; });
   console.log('RESULT STATUS COUNTS', JSON.stringify(sum));
+  const bad = await page.evaluate(() => { const b = {}; Object.values(S.results).forEach(r => { if (r.status === 'ERROR' || r.status === 'NOT_FOUND') b[r.slug] = (b[r.slug] || 0) + 1; }); return b; });
+  console.log('RESULT ERROR PRODUCTS', Object.keys(bad).length, JSON.stringify(bad).slice(0, 3000));
   const ok = await page.evaluate(async () => { const r = await wpPush(true); return r + ' | ' + (S.settings.wpLast || ''); });
   console.log('RESULT PUSH', ok);
   await page.waitForTimeout(3000);
