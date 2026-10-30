@@ -40,8 +40,14 @@ if (files.length) {
   await page.waitForTimeout(2000);
   if (!cfg) await page.evaluate(() => { S.selCountries = ['AE', 'IN', 'GB']; S.selProducts = S.selProducts.slice(0, 3); });
   if (mode === 'quick') {
-    const n = await page.evaluate(() => { const h = S.settings.hourly || []; const known = allProducts().map(p => p[0]); const sh = new Date().getUTCHours() % 3; S.selProducts = h.filter(x => known.indexOf(x) !== -1).filter((x, i) => i % 3 === sh); return S.selProducts.length; });
-    if (!n) { console.log('QUICK: no products ticked with the clock in Full settings - nothing to do'); await ctx.close(); return; }
+    const n = await page.evaluate(() => {
+      const known = allProducts().map(p => p[0]), h = (S.settings.hourly || []).filter(x => known.indexOf(x) !== -1);
+      const rest = S.selProducts.filter(x => h.indexOf(x) === -1), k = Math.floor(Date.now() / 3600000), size = 12;
+      const slice = []; for (let i = 0; i < Math.min(size, rest.length); i++) slice.push(rest[(k * size + i) % rest.length]);
+      S.selProducts = h.filter((x, i) => i % 3 === k % 3).concat(slice);
+      return S.selProducts.length;
+    });
+    if (!n) { console.log('QUICK: nothing to do'); await ctx.close(); return; }
     console.log('QUICK run:', n, 'products');
   }
   const plan = await page.evaluate(() => ({ products: S.selProducts.length, countries: S.selCountries.length, wp: S.settings.wpUrl }));
